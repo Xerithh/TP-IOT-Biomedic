@@ -36,7 +36,8 @@ const int RGB_RED             = 11; // Rouge
 const int RGB_GREEN           = 10; // Vert
 const int RGB_BLUE            = 12; // Bleu
 
-const int SEUIL_CRITIQUE = 800;
+const int BPM_MAX        = 210; // Valeur maximale BPM pour le potentiomètre
+const int SEUIL_CRITIQUE = 160; // Seuil d'alerte BPM cardiaque critique
 
 // États système
 bool systemeActif = false;
@@ -75,17 +76,36 @@ bool musiqueEnLecture = false;
 float derniereTempCorps = 36.5;
 float derniereTempAmb   = 22.0;
 
-String client_id = "ArduinoR4-";
+char client_id[40] = "ArduinoR4-";
 WiFiClient espClient;
 PubSubClient mqtt_client(espClient);
 
+// Intervalles de temps
 unsigned long lastPublishTime = 0;
 const unsigned long PUBLISH_INTERVAL = 300;
+
+unsigned long lastMlxReadTime = 0;
+const unsigned long MLX_READ_INTERVAL = 500;
+
+unsigned long lastMqttReconnectAttempt = 0;
+const unsigned long MQTT_RECONNECT_INTERVAL = 5000;
+
+// Anti-rebond interrupteur
+unsigned long dernierChangementSwitch = 0;
+const unsigned long DEBOUNCE_DELAY = 50;
 
 void setRgbColor(bool r, bool g, bool b);
 void actualiserMusiqueNonBloquante();
 void actualiserEcran(float tempCorps, float tempAmb, int bpm, bool alerte);
 void afficherEcranEteint();
+void gererReconnexionMQTT();
+int lireBPM();
+
+int lireBPM() {
+  int rawValue = analogRead(POT_PIN);
+  int bpm = map(rawValue, 0, 1023, 0, BPM_MAX);
+  return constrain(bpm, 0, BPM_MAX);
+}
 
 void setup() {
   Serial.begin(9600);
@@ -100,43 +120,60 @@ void setup() {
   digitalWrite(LED_DETECTION_VERTE, LOW);
   setRgbColor(false, false, false);
 
-  // Initialisation I2C à 100 kHz (Indispensable pour le MLX90614)
+  // Initialisation I2C standard à 100 kHz (MLX90614 + SSD1306)
   Wire.begin();
-  Wire.setClock(100000); 
+  Wire.setClock(100000);
 
   u8g2.setBusClock(100000);
   u8g2.begin();
-  u8g2.setPowerSave(0); // Maintient l'écran allumé
+  u8g2.setPowerSave(0); // Allume l'écran OLED
 
-  // Détection du capteur IR
-  if (mlx.begin()) {
-    Serial.println("-> Capteur IR MLX90614 détecté !");
-    mlxDetecte = true;
+  // Détection matérielle réelle du capteur IR sur l'adresse 0x5A
+  Wire.beginTransmission(0x5A);
+  if (Wire.endTransmission() == 0) {
+    if (mlx.begin()) {
+      Serial.println("-> Capteur IR MLX90614 détecté avec succès à l'adresse 0x5A !");
+      mlxDetecte = true;
+    }
   } else {
-    Serial.println("⚠️ MLX90614 non détecté sur A4/A5");
+    Serial.println("⚠️ MLX90614 non détecté sur le bus I2C (adresse 0x5A)");
+    mlxDetecte = false;
   }
 
   // Connexion Wi-Fi
   Serial.print("Connexion Wi-Fi ");
   WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED) {
+  unsigned long debutWifi = millis();
+  while (WiFi.status() != WL_CONNECTED && (millis() - debutWifi < 10000)) {
     delay(500);
     Serial.print(".");
   }
-  while (WiFi.localIP() == IPAddress(0, 0, 0, 0)) {
-    delay(200);
-    Serial.print("+");
-  }
-  Serial.println("\nWi-Fi connecté !");
-  client_id = "ArduinoR4-" + String(WiFi.localIP()[3]) + "-" + String(millis());
 
-  // Configuration MQTT
+  if (WiFi.status() == WL_CONNECTED) {
+    while (WiFi.localIP() == IPAddress(0, 0, 0, 0)) {
+      delay(200);
+      Serial.print("+");
+    }
+    Serial.println("\nWi-Fi connecté !");
+    snprintf(client_id, sizeof(client_id), "ArduinoR4-%u-%lu", WiFi.localIP()[3], (unsigned long)millis());
+  } else {
+    Serial.println("\n⚠️ Wi-Fi non connecté (délai dépassé) - mode hors-ligne");
+    snprintf(client_id, sizeof(client_id), "ArduinoR4-offline-%lu", (unsigned long)millis());
+  }
+
+  // Configuration MQTT avec socket timeout court (1s) pour ne jamais geler l'Arduino
   mqtt_client.setServer(mqtt_broker, mqtt_port);
+  mqtt_client.setSocketTimeout(1);
 
   // Premier affichage selon l'état réel de l'interrupteur
   systemeActif = (digitalRead(SWITCH_PIN) == LOW);
+  Serial.print("État initial interrupteur : ");
+  Serial.println(systemeActif ? "ON (Détection active)" : "OFF (Détection éteinte)");
+
   if (systemeActif) {
     digitalWrite(LED_DETECTION_VERTE, HIGH);
+    int initBpm = lireBPM();
+    actualiserEcran(derniereTempCorps, derniereTempAmb, initBpm, (initBpm > SEUIL_CRITIQUE));
   } else {
     afficherEcranEteint();
   }
@@ -155,7 +192,7 @@ void actualiserMusiqueNonBloquante() {
   }
 
   unsigned long maintenant = millis();
-  unsigned long dureeTotaleNote = dureeNotes[noteCourante] * 1.25;
+  unsigned long dureeTotaleNote = (unsigned long)(dureeNotes[noteCourante] * 1.25);
 
   if (maintenant - tempsNotePrecedente >= dureeTotaleNote) {
     tempsNotePrecedente = maintenant;
@@ -173,24 +210,32 @@ void actualiserMusiqueNonBloquante() {
   }
 }
 
-// Écran quand la détection est coupée
 void afficherEcranEteint() {
+  u8g2.setPowerSave(0);
   u8g2.clearBuffer();
-  u8g2.setFont(u8g2_font_ncenB10_tr);
-  u8g2.drawStr(12, 18, "HOME TRAINER");
-  u8g2.drawHLine(0, 24, 128);
-
+  
+  // Titre aligné à gauche
   u8g2.setFont(u8g2_font_7x14B_tr);
-  u8g2.drawStr(0, 42, "DETECTION");
-  u8g2.drawStr(78, 42, "ETEINTE");
+  u8g2.drawStr(0, 16, "HOME TRAINER");
+  u8g2.drawHLine(0, 22, 128);
 
+  // État aligné à gauche
+  u8g2.setFont(u8g2_font_7x14B_tr);
+  u8g2.drawStr(0, 40, "DETECTION");
+  u8g2.drawStr(80, 40, "OFF");
+
+  // Consigne alignée à gauche
   u8g2.setFont(u8g2_font_5x8_tr);
-  u8g2.drawStr(8, 58, "Activez interrupteur");
+  u8g2.drawStr(0, 56, "Activez interrupteur");
+  
   u8g2.sendBuffer();
 }
 
-// Écran pendant la détection
+// Écran pendant la détection (utilisation de buffers statiques pour 0 allocation dynamique)
 void actualiserEcran(float tempCorps, float tempAmb, int bpm, bool alerte) {
+  char buffer[32];
+
+  u8g2.setPowerSave(0);
   u8g2.clearBuffer();
 
   u8g2.setFont(u8g2_font_6x12_tf);
@@ -198,16 +243,16 @@ void actualiserEcran(float tempCorps, float tempAmb, int bpm, bool alerte) {
 
   // Température en grand
   u8g2.setFont(u8g2_font_helvB14_tf);
-  String strTemp = String(tempCorps, 1) + " C";
-  u8g2.drawStr(0, 30, strTemp.c_str());
+  snprintf(buffer, sizeof(buffer), "%.1f C", tempCorps);
+  u8g2.drawStr(0, 30, buffer);
 
   // Ligne de séparation
   u8g2.drawHLine(0, 35, 128);
 
   // BPM & Statut
   u8g2.setFont(u8g2_font_6x12_tf);
-  String strBpm = "BPM: " + String(bpm);
-  u8g2.drawStr(0, 48, strBpm.c_str());
+  snprintf(buffer, sizeof(buffer), "BPM: %d", bpm);
+  u8g2.drawStr(0, 48, buffer);
 
   if (alerte) {
     u8g2.drawStr(68, 48, "! ALERTE !");
@@ -216,33 +261,54 @@ void actualiserEcran(float tempCorps, float tempAmb, int bpm, bool alerte) {
   }
 
   // Température Ambiante
-  String strAmb = "Ambiante: " + String(tempAmb, 1) + " C";
-  u8g2.drawStr(0, 61, strAmb.c_str());
+  snprintf(buffer, sizeof(buffer), "Ambiante: %.1f C", tempAmb);
+  u8g2.drawStr(0, 61, buffer);
 
   u8g2.sendBuffer();
 }
 
-void loop() {
-  // Reconnexion MQTT si nécessaire
-  if (!mqtt_client.connected()) {
-    if (mqtt_client.connect(client_id.c_str())) {
-      mqtt_client.subscribe(topic_led_cmd);
-    }
+void gererReconnexionMQTT() {
+  if (WiFi.status() != WL_CONNECTED) {
+    return; // Évite tout blocage si le Wi-Fi est déconnecté
   }
-  mqtt_client.loop();
 
+  if (!mqtt_client.connected()) {
+    unsigned long maintenant = millis();
+    if (maintenant - lastMqttReconnectAttempt >= MQTT_RECONNECT_INTERVAL) {
+      lastMqttReconnectAttempt = maintenant;
+      Serial.println("[MQTT] Tentative de connexion non-bloquante...");
+      if (mqtt_client.connect(client_id)) {
+        Serial.println("[MQTT] Connecté !");
+        mqtt_client.subscribe(topic_led_cmd);
+      }
+    }
+  } else {
+    mqtt_client.loop();
+  }
+}
+
+void loop() {
+  unsigned long maintenant = millis();
+
+  // Reconnexion non-bloquante et traitement MQTT
+  gererReconnexionMQTT();
+
+  // Gestion du buzzer non-bloquant
   actualiserMusiqueNonBloquante();
 
-  // --- 1. Gestion de l'interrupteur ---
+  // --- 1. Gestion de l'interrupteur avec anti-rebond ---
   bool interrupteurON = (digitalRead(SWITCH_PIN) == LOW);
 
-  if (interrupteurON != systemeActif) {
+  if ((interrupteurON != systemeActif) && (maintenant - dernierChangementSwitch >= DEBOUNCE_DELAY)) {
+    dernierChangementSwitch = maintenant;
     systemeActif = interrupteurON;
     
-    Serial.print("Interrupteur -> ");
+    Serial.print(">> [INTERRUPTEUR] Basculement vers -> ");
     Serial.println(systemeActif ? "ON (Détection active)" : "OFF (Détection éteinte)");
 
-    mqtt_client.publish(topic_systeme, systemeActif ? "1" : "0");
+    if (mqtt_client.connected()) {
+      mqtt_client.publish(topic_systeme, systemeActif ? "1" : "0");
+    }
 
     if (!systemeActif) {
       // Extinction des témoins et musique
@@ -252,26 +318,36 @@ void loop() {
       noteCourante = 0;
       noTone(BUZZER_PIN);
       alerteEnCours = false;
-      mqtt_client.publish(topic_pot, "0");
+      if (mqtt_client.connected()) {
+        mqtt_client.publish(topic_pot, "0");
+      }
 
       // Affichage immédiat du message d'extinction
+      Serial.println("[OLED] Affichage écran veille (OFF)...");
       afficherEcranEteint();
     } else {
-      // Remise en marche immédiate de la LED verte D4
+      // Remise en marche immédiate de la LED verte D4 et actualisation écran
       digitalWrite(LED_DETECTION_VERTE, HIGH);
+      lastPublishTime = maintenant;
+      lastMlxReadTime = maintenant;
+      dernierBlinkBleu = maintenant;
+      etatBleu = true;
+      setRgbColor(false, false, true);
+
+      int bpm = lireBPM();
+      Serial.println("[OLED] Affichage écran détection (ON)...");
+      actualiserEcran(derniereTempCorps, derniereTempAmb, bpm, (bpm > SEUIL_CRITIQUE));
     }
   }
 
   // --- 2. Détection Active ---
-  unsigned long maintenant = millis();
-
   if (systemeActif) {
-    digitalWrite(LED_DETECTION_VERTE, HIGH);
+    int bpm = lireBPM();
 
-    int potValue = analogRead(POT_PIN);
+    // Lecture cadencée du MLX90614 (toutes les 500ms max pour ne pas saturer le bus I2C)
+    if (mlxDetecte && (maintenant - lastMlxReadTime >= MLX_READ_INTERVAL)) {
+      lastMlxReadTime = maintenant;
 
-    // Lecture sécurisée du MLX90614 (anti-NaN)
-    if (mlxDetecte) {
       float tObj = mlx.readObjectTempC();
       float tAmb = mlx.readAmbientTempC();
 
@@ -288,26 +364,31 @@ void loop() {
     if (maintenant - lastPublishTime >= PUBLISH_INTERVAL) {
       lastPublishTime = maintenant;
 
-      String payload = String(potValue);
-      mqtt_client.publish(topic_pot, payload.c_str());
+      char payload[16];
+      snprintf(payload, sizeof(payload), "%d", bpm);
+      if (mqtt_client.connected()) {
+        mqtt_client.publish(topic_pot, payload);
+      }
 
       Serial.print("BPM: ");
-      Serial.print(potValue);
+      Serial.print(bpm);
       Serial.print(" | Corps: ");
       Serial.print(derniereTempCorps, 1);
       Serial.print(" C | Amb: ");
       Serial.print(derniereTempAmb, 1);
       Serial.println(" C");
 
-      actualiserEcran(derniereTempCorps, derniereTempAmb, potValue, (potValue > SEUIL_CRITIQUE));
+      actualiserEcran(derniereTempCorps, derniereTempAmb, bpm, (bpm > SEUIL_CRITIQUE));
     }
 
     // Gestion de l'alerte
-    if (potValue > SEUIL_CRITIQUE) {
+    if (bpm > SEUIL_CRITIQUE) {
       setRgbColor(true, false, false); // Rouge continu
 
       if (!alerteEnCours) {
-        mqtt_client.publish(topic_alerte, "🚨 ALERTE CRITIQUE : Seuil dépassé !");
+        if (mqtt_client.connected()) {
+          mqtt_client.publish(topic_alerte, "🚨 ALERTE CRITIQUE : Seuil dépassé !");
+        }
         alerteEnCours = true;
 
         noteCourante = 0;
@@ -328,8 +409,8 @@ void loop() {
       if (maintenant - dernierBlinkBleu >= PERIODE_BLINK_BLEU) {
         dernierBlinkBleu = maintenant;
         etatBleu = !etatBleu;
+        setRgbColor(false, false, etatBleu); // Clignotement Bleu (Pin 12)
       }
-      setRgbColor(false, false, etatBleu); // Clignotement Bleu (Pin 12)
     }
   }
 }
