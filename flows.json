@@ -1,0 +1,54 @@
+[
+    {
+        "id": "8d0a71077483ef7e",
+        "type": "ui-notification",
+        "z": "56ae072a05728b91",
+        "ui": "795bf448bb83b6e8",
+        "position": "top right",
+        "colorDefault": false,
+        "color": "#ff1744",
+        "displayTime": "3",
+        "showCountdown": true,
+        "outputs": 1,
+        "allowDismiss": true,
+        "dismissText": "Fermer",
+        "allowConfirm": false,
+        "confirmText": "Confirmer",
+        "raw": false,
+        "className": "",
+        "name": "Bannière Alerte Santé",
+        "x": 1020,
+        "y": 580,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "795bf448bb83b6e8",
+        "type": "ui-base",
+        "name": "My Dashboard",
+        "path": "/dashboard",
+        "appIcon": "",
+        "includeClientData": true,
+        "acceptsClientConfig": [
+            "ui-notification",
+            "ui-control"
+        ],
+        "showPathInSidebar": false,
+        "headerContent": "page",
+        "navigationStyle": "default",
+        "titleBarStyle": "default",
+        "showReconnectNotification": true,
+        "notificationDisplayTime": 1,
+        "showDisconnectNotification": true,
+        "allowInstall": false
+    },
+    {
+        "id": "197f118a603e628d",
+        "type": "global-config",
+        "env": [],
+        "modules": {
+            "@flowfuse/node-red-dashboard": "1.28.0"
+        }
+    }
+]
