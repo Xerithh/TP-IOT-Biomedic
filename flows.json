@@ -1,33 +1,1511 @@
 [
     {
-        "id": "8d0a71077483ef7e",
-        "type": "ui-notification",
-        "z": "56ae072a05728b91",
-        "ui": "795bf448bb83b6e8",
-        "position": "top right",
-        "colorDefault": false,
-        "color": "#ff1744",
-        "displayTime": "3",
-        "showCountdown": true,
+        "id": "san_tab",
+        "type": "tab",
+        "label": "Home Trainer",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "san_c0",
+        "type": "comment",
+        "z": "san_tab",
+        "name": "Topics MQTT (identiques au code Arduino)",
+        "info": "Arduino -> Node-RED : gaelle-capteurs/bpm, gaelle-capteurs/temperature (nombres ; 0 = pas de mesure), gaelle-capteurs/bouton (on = mode SANTE, off = OFFLINE), gaelle-capteurs/source (capteur/pot), gaelle-capteurs/signal_bpm (ok/aucun), gaelle-capteurs/dino_score\nNode-RED -> Arduino : gaelle-capteurs/led1, gaelle-capteurs/alarme_bpm, gaelle-capteurs/alarme_temp (on/off), gaelle-capteurs/source_cmd (capteur/pot)\nPour changer le prefixe : Rechercher/Remplacer dans ce fichier AVANT l'import, et dans le code Arduino (topic_...).",
+        "x": 250,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "san_c1",
+        "type": "comment",
+        "z": "san_tab",
+        "name": "A) ÉTAT : mode, source du BPM, capteur BPM, LED",
+        "info": "",
+        "x": 190,
+        "y": 100,
+        "wires": []
+    },
+    {
+        "id": "san_in_bouton",
+        "type": "mqtt in",
+        "z": "san_tab",
+        "name": "",
+        "topic": "gaelle-capteurs/bouton",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "san_broker",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 140,
+        "y": 150,
+        "wires": [
+            [
+                "san_fn_mode"
+            ]
+        ]
+    },
+    {
+        "id": "san_fn_mode",
+        "type": "function",
+        "z": "san_tab",
+        "name": "mode (interrupteur)",
+        "func": "// L'interrupteur de l'Arduino publie 'on' (mode SANTE) ou 'off' (mode OFFLINE).\nconst sante = (msg.payload === 'on');\nflow.set('sante', sante);\nreturn { payload: sante\n    ? '🟢 Mode SANTÉ (interrupteur ON) : alertes actives'\n    : '⚪ Mode OFFLINE (interrupteur OFF) : jeu du dino, alertes désactivées' };",
         "outputs": 1,
-        "allowDismiss": true,
-        "dismissText": "Fermer",
-        "allowConfirm": false,
-        "confirmText": "Confirmer",
-        "raw": false,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 380,
+        "y": 150,
+        "wires": [
+            [
+                "san_txt_mode"
+            ]
+        ]
+    },
+    {
+        "id": "san_txt_mode",
+        "type": "ui-text",
+        "z": "san_tab",
+        "group": "san_grp_etat",
+        "order": 1,
+        "width": "12",
+        "height": "1",
+        "name": "Mode",
+        "label": "Mode",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "style": false,
+        "font": "",
+        "fontSize": 16,
+        "color": "#717171",
+        "wrapText": true,
         "className": "",
-        "name": "Bannière Alerte Santé",
-        "x": 1020,
-        "y": 580,
+        "value": "payload",
+        "valueType": "msg",
+        "x": 650,
+        "y": 150,
+        "wires": []
+    },
+    {
+        "id": "san_in_source",
+        "type": "mqtt in",
+        "z": "san_tab",
+        "name": "",
+        "topic": "gaelle-capteurs/source",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "san_broker",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 140,
+        "y": 210,
+        "wires": [
+            [
+                "san_fn_source"
+            ]
+        ]
+    },
+    {
+        "id": "san_fn_source",
+        "type": "function",
+        "z": "san_tab",
+        "name": "source valide ?",
+        "func": "// L'Arduino publie la source reellement utilisee : 'capteur' ou 'pot'\nif (msg.payload !== 'capteur' && msg.payload !== 'pot') return null;\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 380,
+        "y": 210,
+        "wires": [
+            [
+                "san_sw_source"
+            ]
+        ]
+    },
+    {
+        "id": "san_sw_source",
+        "type": "ui-switch",
+        "z": "san_tab",
+        "name": "Source BPM",
+        "label": "Source du BPM : capteur (ON) / potentiomètre (OFF)",
+        "group": "san_grp_etat",
+        "order": 2,
+        "width": "6",
+        "height": "1",
+        "passthru": false,
+        "decouple": false,
+        "topic": "topic",
+        "topicType": "msg",
+        "style": "",
+        "className": "",
+        "layout": "row-spread",
+        "clickableArea": "switch",
+        "onvalue": "capteur",
+        "onvalueType": "str",
+        "onicon": "",
+        "oncolor": "",
+        "offvalue": "pot",
+        "offvalueType": "str",
+        "officon": "",
+        "offcolor": "",
+        "x": 650,
+        "y": 210,
+        "wires": [
+            [
+                "san_out_source_cmd"
+            ]
+        ]
+    },
+    {
+        "id": "san_out_source_cmd",
+        "type": "mqtt out",
+        "z": "san_tab",
+        "name": "-> Arduino (choix de la source)",
+        "topic": "gaelle-capteurs/source_cmd",
+        "qos": "0",
+        "retain": "false",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "san_broker",
+        "x": 930,
+        "y": 210,
+        "wires": []
+    },
+    {
+        "id": "san_in_signal",
+        "type": "mqtt in",
+        "z": "san_tab",
+        "name": "",
+        "topic": "gaelle-capteurs/signal_bpm",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "san_broker",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 150,
+        "y": 270,
+        "wires": [
+            [
+                "san_fn_signal"
+            ]
+        ]
+    },
+    {
+        "id": "san_fn_signal",
+        "type": "function",
+        "z": "san_tab",
+        "name": "texte signal capteur BPM",
+        "func": "return { payload: (msg.payload === 'ok')\n    ? '🟢 Capteur BPM : signal OK'\n    : '🔴 Capteur BPM : pas de signal (pas de doigt ?)' };",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 380,
+        "y": 270,
+        "wires": [
+            [
+                "san_txt_signal"
+            ]
+        ]
+    },
+    {
+        "id": "san_txt_signal",
+        "type": "ui-text",
+        "z": "san_tab",
+        "group": "san_grp_etat",
+        "order": 3,
+        "width": "12",
+        "height": "1",
+        "name": "Signal capteur BPM",
+        "label": "Capteur BPM",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "style": false,
+        "font": "",
+        "fontSize": 16,
+        "color": "#717171",
+        "wrapText": true,
+        "className": "",
+        "value": "payload",
+        "valueType": "msg",
+        "x": 650,
+        "y": 270,
+        "wires": []
+    },
+    {
+        "id": "san_sw_led",
+        "type": "ui-switch",
+        "z": "san_tab",
+        "name": "LED verte",
+        "label": "LED verte de l'Arduino (commande)",
+        "group": "san_grp_etat",
+        "order": 4,
+        "width": "6",
+        "height": "1",
+        "passthru": true,
+        "decouple": false,
+        "topic": "topic",
+        "topicType": "msg",
+        "style": "",
+        "className": "",
+        "layout": "row-spread",
+        "clickableArea": "switch",
+        "onvalue": "on",
+        "onvalueType": "str",
+        "onicon": "",
+        "oncolor": "",
+        "offvalue": "off",
+        "offvalueType": "str",
+        "officon": "",
+        "offcolor": "",
+        "x": 150,
+        "y": 330,
+        "wires": [
+            [
+                "san_out_led"
+            ]
+        ]
+    },
+    {
+        "id": "san_out_led",
+        "type": "mqtt out",
+        "z": "san_tab",
+        "name": "-> Arduino (LED)",
+        "topic": "gaelle-capteurs/led1",
+        "qos": "0",
+        "retain": "false",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "san_broker",
+        "x": 400,
+        "y": 330,
+        "wires": []
+    },
+    {
+        "id": "san_c2",
+        "type": "comment",
+        "z": "san_tab",
+        "name": "B) RYTHME CARDIAQUE : graphique, jauge, curseur de seuil, alerte",
+        "info": "",
+        "x": 250,
+        "y": 400,
+        "wires": []
+    },
+    {
+        "id": "san_in_bpm",
+        "type": "mqtt in",
+        "z": "san_tab",
+        "name": "",
+        "topic": "gaelle-capteurs/bpm",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "san_broker",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 140,
+        "y": 450,
+        "wires": [
+            [
+                "san_fn_valide_bpm",
+                "san_fn_alarme_bpm"
+            ]
+        ]
+    },
+    {
+        "id": "san_fn_valide_bpm",
+        "type": "function",
+        "z": "san_tab",
+        "name": "BPM valide (> 0) ?",
+        "func": "// Ne trace pas les valeurs <= 0 (0 = pas de mesure / mode OFFLINE)\nconst v = Number(msg.payload);\nif (isNaN(v) || v <= 0) return null;\nmsg.payload = v;\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 390,
+        "y": 430,
+        "wires": [
+            [
+                "san_chart_bpm",
+                "san_gauge_bpm"
+            ]
+        ]
+    },
+    {
+        "id": "san_txt_alarme_bpm",
+        "type": "ui-text",
+        "z": "san_tab",
+        "group": "san_grp_bpm",
+        "order": 1,
+        "width": "6",
+        "height": "1",
+        "name": "Alerte BPM",
+        "label": "Alerte",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "style": false,
+        "font": "",
+        "fontSize": 16,
+        "color": "#717171",
+        "wrapText": true,
+        "className": "",
+        "value": "payload",
+        "valueType": "msg",
+        "x": 900,
+        "y": 480,
+        "wires": []
+    },
+    {
+        "id": "san_chart_bpm",
+        "type": "ui-chart",
+        "z": "san_tab",
+        "group": "san_grp_bpm",
+        "name": "BPM",
+        "label": "BPM (5 dernières minutes)",
+        "order": 2,
+        "chartType": "line",
+        "category": "topic",
+        "categoryType": "msg",
+        "xAxisLabel": "",
+        "xAxisProperty": "",
+        "xAxisPropertyType": "timestamp",
+        "xAxisType": "time",
+        "xAxisFormat": "",
+        "xAxisFormatType": "auto",
+        "xmin": "",
+        "xmax": "",
+        "yAxisLabel": "",
+        "yAxisProperty": "payload",
+        "yAxisPropertyType": "msg",
+        "ymin": "",
+        "ymax": "",
+        "bins": 10,
+        "action": "append",
+        "stackSeries": false,
+        "pointShape": "circle",
+        "pointRadius": 3,
+        "showLegend": false,
+        "removeOlder": 5,
+        "removeOlderUnit": "60",
+        "removeOlderPoints": "",
+        "colors": [
+            "#0095ff",
+            "#ff0000",
+            "#ff7f0e",
+            "#2ca02c",
+            "#a347e1",
+            "#d62728",
+            "#ff9896",
+            "#9467bd",
+            "#c5b0d5"
+        ],
+        "textColor": [
+            "#666666"
+        ],
+        "textColorDefault": true,
+        "gridColor": [
+            "#e5e5e5"
+        ],
+        "gridColorDefault": true,
+        "width": "6",
+        "height": "5",
+        "className": "",
+        "interpolation": "linear",
+        "x": 660,
+        "y": 410,
         "wires": [
             []
         ]
     },
     {
-        "id": "795bf448bb83b6e8",
+        "id": "san_gauge_bpm",
+        "type": "ui-gauge",
+        "z": "san_tab",
+        "name": "Jauge BPM",
+        "group": "san_grp_bpm",
+        "order": 3,
+        "value": "payload",
+        "valueType": "msg",
+        "width": "3",
+        "height": "3",
+        "gtype": "gauge-half",
+        "gstyle": "needle",
+        "title": "BPM",
+        "units": "bpm",
+        "icon": "",
+        "prefix": "",
+        "suffix": "",
+        "segments": [
+            {
+                "from": "0",
+                "color": "#5cd65c"
+            },
+            {
+                "from": "100",
+                "color": "#ffc800"
+            },
+            {
+                "from": "140",
+                "color": "#ea5353"
+            }
+        ],
+        "min": 0,
+        "max": 200,
+        "sizeThickness": 16,
+        "sizeGap": 4,
+        "sizeKeyThickness": 8,
+        "styleRounded": true,
+        "styleGlow": false,
+        "className": "",
+        "x": 660,
+        "y": 450,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "san_sl_bpm",
+        "type": "ui-slider",
+        "z": "san_tab",
+        "group": "san_grp_bpm",
+        "name": "Seuil BPM",
+        "label": "Seuil BPM",
+        "tooltip": "",
+        "order": 4,
+        "width": "3",
+        "height": "1",
+        "passthru": false,
+        "outs": "end",
+        "topic": "topic",
+        "topicType": "msg",
+        "thumbLabel": "true",
+        "showTicks": "false",
+        "min": "60",
+        "max": "200",
+        "step": "1",
+        "className": "",
+        "iconPrepend": "",
+        "iconAppend": "",
+        "color": "",
+        "colorTrack": "",
+        "colorThumb": "",
+        "showTextField": false,
+        "x": 140,
+        "y": 520,
+        "wires": [
+            [
+                "san_fn_seuil_bpm"
+            ]
+        ]
+    },
+    {
+        "id": "san_fn_seuil_bpm",
+        "type": "function",
+        "z": "san_tab",
+        "name": "memoriser seuil BPM",
+        "func": "flow.set('seuil_bpm', Number(msg.payload));\nreturn null;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 390,
+        "y": 520,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "san_inj_sbpm",
+        "type": "inject",
+        "z": "san_tab",
+        "name": "seuil BPM par defaut : 120",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": true,
+        "onceDelay": 1,
+        "topic": "",
+        "payload": "120",
+        "payloadType": "num",
+        "x": 170,
+        "y": 565,
+        "wires": [
+            [
+                "san_sl_bpm"
+            ]
+        ]
+    },
+    {
+        "id": "san_fn_alarme_bpm",
+        "type": "function",
+        "z": "san_tab",
+        "name": "Alerte BPM ?",
+        "func": "// Alerte BPM : valeur > seuil (curseur) ET mode SANTE (interrupteur de l'Arduino sur ON)\nconst val = Number(msg.payload);\nif (isNaN(val)) return [null, null];\n\nconst seuil = flow.get('seuil_bpm') ?? 120;   // regle par le curseur de ce groupe\nconst sante = flow.get('sante') ?? false;          // true = interrupteur ON\n\nlet texte, ordre;\nif (!sante) {\n    texte = '⚪ Alertes désactivées (mode OFFLINE)';\n    ordre = 'off';\n} else if (val <= 0) {\n    texte = '⚪ Pas de mesure';\n    ordre = 'off';\n} else if (val > seuil) {\n    texte = '🚨 ALERTE BPM : ' + val.toFixed(0) + ' bpm > ' + seuil;\n    ordre = 'on';\n} else {\n    texte = '✅ BPM normal (' + val.toFixed(0) + ' bpm)';\n    ordre = 'off';\n}\n\n// Texte : envoye seulement s'il change. Ordre pour l'Arduino : seulement si l'etat change.\nconst sortie = [null, null];\nif (texte !== flow.get('ordre_bpm_texte')) { flow.set('ordre_bpm_texte', texte); sortie[0] = { payload: texte }; }\nif (ordre !== flow.get('ordre_bpm')) { flow.set('ordre_bpm', ordre); sortie[1] = { payload: ordre }; }\nreturn sortie;",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 410,
+        "y": 480,
+        "wires": [
+            [
+                "san_txt_alarme_bpm"
+            ],
+            [
+                "san_out_alarme_bpm"
+            ]
+        ]
+    },
+    {
+        "id": "san_out_alarme_bpm",
+        "type": "mqtt out",
+        "z": "san_tab",
+        "name": "-> Arduino (alerte BPM)",
+        "topic": "gaelle-capteurs/alarme_bpm",
+        "qos": "0",
+        "retain": "false",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "san_broker",
+        "x": 930,
+        "y": 530,
+        "wires": []
+    },
+    {
+        "id": "san_c3",
+        "type": "comment",
+        "z": "san_tab",
+        "name": "C) TEMPÉRATURE : graphique, jauge, curseur de seuil, alerte",
+        "info": "",
+        "x": 250,
+        "y": 630,
+        "wires": []
+    },
+    {
+        "id": "san_in_temp",
+        "type": "mqtt in",
+        "z": "san_tab",
+        "name": "",
+        "topic": "gaelle-capteurs/temperature",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "san_broker",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 150,
+        "y": 680,
+        "wires": [
+            [
+                "san_fn_valide_temp",
+                "san_fn_alarme_temp"
+            ]
+        ]
+    },
+    {
+        "id": "san_fn_valide_temp",
+        "type": "function",
+        "z": "san_tab",
+        "name": "Temperature valide (> 0) ?",
+        "func": "// Ne trace pas les valeurs <= 0 (0 = pas de mesure / mode OFFLINE)\nconst v = Number(msg.payload);\nif (isNaN(v) || v <= 0) return null;\nmsg.payload = v;\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 400,
+        "y": 660,
+        "wires": [
+            [
+                "san_chart_temp",
+                "san_gauge_temp"
+            ]
+        ]
+    },
+    {
+        "id": "san_txt_alarme_temp",
+        "type": "ui-text",
+        "z": "san_tab",
+        "group": "san_grp_temp",
+        "order": 1,
+        "width": "6",
+        "height": "1",
+        "name": "Alerte temperature",
+        "label": "Alerte",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "style": false,
+        "font": "",
+        "fontSize": 16,
+        "color": "#717171",
+        "wrapText": true,
+        "className": "",
+        "value": "payload",
+        "valueType": "msg",
+        "x": 920,
+        "y": 710,
+        "wires": []
+    },
+    {
+        "id": "san_chart_temp",
+        "type": "ui-chart",
+        "z": "san_tab",
+        "group": "san_grp_temp",
+        "name": "Temperature",
+        "label": "Température de peau (°C)",
+        "order": 2,
+        "chartType": "line",
+        "category": "topic",
+        "categoryType": "msg",
+        "xAxisLabel": "",
+        "xAxisProperty": "",
+        "xAxisPropertyType": "timestamp",
+        "xAxisType": "time",
+        "xAxisFormat": "",
+        "xAxisFormatType": "auto",
+        "xmin": "",
+        "xmax": "",
+        "yAxisLabel": "",
+        "yAxisProperty": "payload",
+        "yAxisPropertyType": "msg",
+        "ymin": "20",
+        "ymax": "42",
+        "bins": 10,
+        "action": "append",
+        "stackSeries": false,
+        "pointShape": "circle",
+        "pointRadius": 3,
+        "showLegend": false,
+        "removeOlder": 5,
+        "removeOlderUnit": "60",
+        "removeOlderPoints": "",
+        "colors": [
+            "#0095ff",
+            "#ff0000",
+            "#ff7f0e",
+            "#2ca02c",
+            "#a347e1",
+            "#d62728",
+            "#ff9896",
+            "#9467bd",
+            "#c5b0d5"
+        ],
+        "textColor": [
+            "#666666"
+        ],
+        "textColorDefault": true,
+        "gridColor": [
+            "#e5e5e5"
+        ],
+        "gridColorDefault": true,
+        "width": "6",
+        "height": "5",
+        "className": "",
+        "interpolation": "linear",
+        "x": 670,
+        "y": 640,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "san_gauge_temp",
+        "type": "ui-gauge",
+        "z": "san_tab",
+        "name": "Jauge temperature",
+        "group": "san_grp_temp",
+        "order": 3,
+        "value": "payload",
+        "valueType": "msg",
+        "width": "3",
+        "height": "3",
+        "gtype": "gauge-half",
+        "gstyle": "needle",
+        "title": "Température",
+        "units": "°C",
+        "icon": "",
+        "prefix": "",
+        "suffix": "",
+        "segments": [
+            {
+                "from": "20",
+                "color": "#5cd65c"
+            },
+            {
+                "from": "37.5",
+                "color": "#ffc800"
+            },
+            {
+                "from": "38.5",
+                "color": "#ea5353"
+            }
+        ],
+        "min": 20,
+        "max": 42,
+        "sizeThickness": 16,
+        "sizeGap": 4,
+        "sizeKeyThickness": 8,
+        "styleRounded": true,
+        "styleGlow": false,
+        "className": "",
+        "x": 670,
+        "y": 680,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "san_sl_temp",
+        "type": "ui-slider",
+        "z": "san_tab",
+        "group": "san_grp_temp",
+        "name": "Seuil température",
+        "label": "Seuil température",
+        "tooltip": "",
+        "order": 4,
+        "width": "3",
+        "height": "1",
+        "passthru": false,
+        "outs": "end",
+        "topic": "topic",
+        "topicType": "msg",
+        "thumbLabel": "true",
+        "showTicks": "false",
+        "min": "25",
+        "max": "42",
+        "step": "0.1",
+        "className": "",
+        "iconPrepend": "",
+        "iconAppend": "",
+        "color": "",
+        "colorTrack": "",
+        "colorThumb": "",
+        "showTextField": false,
+        "x": 160,
+        "y": 750,
+        "wires": [
+            [
+                "san_fn_seuil_temp"
+            ]
+        ]
+    },
+    {
+        "id": "san_fn_seuil_temp",
+        "type": "function",
+        "z": "san_tab",
+        "name": "memoriser seuil temperature",
+        "func": "flow.set('seuil_temp', Number(msg.payload));\nreturn null;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 420,
+        "y": 750,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "san_inj_stemp",
+        "type": "inject",
+        "z": "san_tab",
+        "name": "seuil temp par defaut : 37.5",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": true,
+        "onceDelay": 1,
+        "topic": "",
+        "payload": "37.5",
+        "payloadType": "num",
+        "x": 180,
+        "y": 795,
+        "wires": [
+            [
+                "san_sl_temp"
+            ]
+        ]
+    },
+    {
+        "id": "san_fn_alarme_temp",
+        "type": "function",
+        "z": "san_tab",
+        "name": "Alerte temperature ?",
+        "func": "// Alerte température : valeur > seuil (curseur) ET mode SANTE (interrupteur de l'Arduino sur ON)\nconst val = Number(msg.payload);\nif (isNaN(val)) return [null, null];\n\nconst seuil = flow.get('seuil_temp') ?? 37.5;   // regle par le curseur de ce groupe\nconst sante = flow.get('sante') ?? false;          // true = interrupteur ON\n\nlet texte, ordre;\nif (!sante) {\n    texte = '⚪ Alertes désactivées (mode OFFLINE)';\n    ordre = 'off';\n} else if (val <= 0) {\n    texte = '⚪ Pas de mesure';\n    ordre = 'off';\n} else if (val > seuil) {\n    texte = '🚨 ALERTE température : ' + val.toFixed(1) + ' °C > ' + seuil;\n    ordre = 'on';\n} else {\n    texte = '✅ température normal (' + val.toFixed(1) + ' °C)';\n    ordre = 'off';\n}\n\n// Texte : envoye seulement s'il change. Ordre pour l'Arduino : seulement si l'etat change.\nconst sortie = [null, null];\nif (texte !== flow.get('ordre_temp_texte')) { flow.set('ordre_temp_texte', texte); sortie[0] = { payload: texte }; }\nif (ordre !== flow.get('ordre_temp')) { flow.set('ordre_temp', ordre); sortie[1] = { payload: ordre }; }\nreturn sortie;",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 430,
+        "y": 710,
+        "wires": [
+            [
+                "san_txt_alarme_temp"
+            ],
+            [
+                "san_out_alarme_temp"
+            ]
+        ]
+    },
+    {
+        "id": "san_out_alarme_temp",
+        "type": "mqtt out",
+        "z": "san_tab",
+        "name": "-> Arduino (alerte temperature)",
+        "topic": "gaelle-capteurs/alarme_temp",
+        "qos": "0",
+        "retain": "false",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "san_broker",
+        "x": 940,
+        "y": 760,
+        "wires": []
+    },
+    {
+        "id": "san_c4",
+        "type": "comment",
+        "z": "san_tab",
+        "name": "D) DINO : score envoye par l'Arduino a la fin de chaque partie",
+        "info": "",
+        "x": 240,
+        "y": 830,
+        "wires": []
+    },
+    {
+        "id": "san_in_dino",
+        "type": "mqtt in",
+        "z": "san_tab",
+        "name": "",
+        "topic": "gaelle-capteurs/dino_score",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "san_broker",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 140,
+        "y": 880,
+        "wires": [
+            [
+                "san_fn_dino"
+            ]
+        ]
+    },
+    {
+        "id": "san_fn_dino",
+        "type": "function",
+        "z": "san_tab",
+        "name": "score et record",
+        "func": "let score, record;\nif (typeof msg.payload === 'object') {\n    score = Number(msg.payload.score);\n    record = Number(msg.payload.record);\n} else {\n    score = Number(msg.payload);\n    record = Math.max(flow.get('dino_record') ?? 0, score);\n    flow.set('dino_record', record);\n}\nif (isNaN(score) || isNaN(record)) return null;\nreturn { payload: 'Dernier score : ' + score + '   |   Record : ' + record };",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 380,
+        "y": 880,
+        "wires": [
+            [
+                "san_txt_dino"
+            ]
+        ]
+    },
+    {
+        "id": "san_txt_dino",
+        "type": "ui-text",
+        "z": "san_tab",
+        "group": "san_grp_dino",
+        "order": 1,
+        "width": "12",
+        "height": "1",
+        "name": "Dino",
+        "label": "Parties",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "style": false,
+        "font": "",
+        "fontSize": 16,
+        "color": "#717171",
+        "wrapText": true,
+        "className": "",
+        "value": "payload",
+        "valueType": "msg",
+        "x": 650,
+        "y": 880,
+        "wires": []
+    },
+    {
+        "id": "san_c5",
+        "type": "comment",
+        "z": "san_tab",
+        "name": "E) TESTS sans Arduino : un clic sur le carre a gauche d'un inject simule l'Arduino",
+        "info": "",
+        "x": 330,
+        "y": 950,
+        "wires": []
+    },
+    {
+        "id": "san_t_bpm80",
+        "type": "inject",
+        "z": "san_tab",
+        "name": "BPM 80 (normal)",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 1,
+        "topic": "",
+        "payload": "80",
+        "payloadType": "num",
+        "x": 150,
+        "y": 1000,
+        "wires": [
+            [
+                "san_o_bpm"
+            ]
+        ]
+    },
+    {
+        "id": "san_t_bpm150",
+        "type": "inject",
+        "z": "san_tab",
+        "name": "BPM 150 (eleve)",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 1,
+        "topic": "",
+        "payload": "150",
+        "payloadType": "num",
+        "x": 150,
+        "y": 1040,
+        "wires": [
+            [
+                "san_o_bpm"
+            ]
+        ]
+    },
+    {
+        "id": "san_o_bpm",
+        "type": "mqtt out",
+        "z": "san_tab",
+        "name": "publie bpm",
+        "topic": "gaelle-capteurs/bpm",
+        "qos": "0",
+        "retain": "false",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "san_broker",
+        "x": 400,
+        "y": 1020,
+        "wires": []
+    },
+    {
+        "id": "san_t_t365",
+        "type": "inject",
+        "z": "san_tab",
+        "name": "Temperature 36.5 (normale)",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 1,
+        "topic": "",
+        "payload": "36.5",
+        "payloadType": "num",
+        "x": 170,
+        "y": 1090,
+        "wires": [
+            [
+                "san_o_temp"
+            ]
+        ]
+    },
+    {
+        "id": "san_t_t385",
+        "type": "inject",
+        "z": "san_tab",
+        "name": "Temperature 38.5 (elevee)",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 1,
+        "topic": "",
+        "payload": "38.5",
+        "payloadType": "num",
+        "x": 170,
+        "y": 1130,
+        "wires": [
+            [
+                "san_o_temp"
+            ]
+        ]
+    },
+    {
+        "id": "san_o_temp",
+        "type": "mqtt out",
+        "z": "san_tab",
+        "name": "publie temperature",
+        "topic": "gaelle-capteurs/temperature",
+        "qos": "0",
+        "retain": "false",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "san_broker",
+        "x": 430,
+        "y": 1110,
+        "wires": []
+    },
+    {
+        "id": "san_t_on",
+        "type": "inject",
+        "z": "san_tab",
+        "name": "Mode SANTE (interrupteur ON)",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 1,
+        "topic": "",
+        "payload": "on",
+        "payloadType": "str",
+        "x": 170,
+        "y": 1180,
+        "wires": [
+            [
+                "san_o_bouton"
+            ]
+        ]
+    },
+    {
+        "id": "san_t_off",
+        "type": "inject",
+        "z": "san_tab",
+        "name": "Mode OFFLINE (interrupteur OFF)",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 1,
+        "topic": "",
+        "payload": "off",
+        "payloadType": "str",
+        "x": 170,
+        "y": 1220,
+        "wires": [
+            [
+                "san_o_bouton"
+            ]
+        ]
+    },
+    {
+        "id": "san_o_bouton",
+        "type": "mqtt out",
+        "z": "san_tab",
+        "name": "publie bouton",
+        "topic": "gaelle-capteurs/bouton",
+        "qos": "0",
+        "retain": "false",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "san_broker",
+        "x": 430,
+        "y": 1200,
+        "wires": []
+    },
+    {
+        "id": "san_t_srcc",
+        "type": "inject",
+        "z": "san_tab",
+        "name": "Source = capteur",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 1,
+        "topic": "",
+        "payload": "capteur",
+        "payloadType": "str",
+        "x": 150,
+        "y": 1270,
+        "wires": [
+            [
+                "san_o_src"
+            ]
+        ]
+    },
+    {
+        "id": "san_t_srcp",
+        "type": "inject",
+        "z": "san_tab",
+        "name": "Source = potentiometre",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 1,
+        "topic": "",
+        "payload": "pot",
+        "payloadType": "str",
+        "x": 160,
+        "y": 1310,
+        "wires": [
+            [
+                "san_o_src"
+            ]
+        ]
+    },
+    {
+        "id": "san_o_src",
+        "type": "mqtt out",
+        "z": "san_tab",
+        "name": "publie source",
+        "topic": "gaelle-capteurs/source",
+        "qos": "0",
+        "retain": "false",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "san_broker",
+        "x": 420,
+        "y": 1290,
+        "wires": []
+    },
+    {
+        "id": "san_t_sigok",
+        "type": "inject",
+        "z": "san_tab",
+        "name": "Signal capteur OK",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 1,
+        "topic": "",
+        "payload": "ok",
+        "payloadType": "str",
+        "x": 150,
+        "y": 1360,
+        "wires": [
+            [
+                "san_o_sig"
+            ]
+        ]
+    },
+    {
+        "id": "san_t_signo",
+        "type": "inject",
+        "z": "san_tab",
+        "name": "Signal capteur : aucun",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 1,
+        "topic": "",
+        "payload": "aucun",
+        "payloadType": "str",
+        "x": 160,
+        "y": 1400,
+        "wires": [
+            [
+                "san_o_sig"
+            ]
+        ]
+    },
+    {
+        "id": "san_o_sig",
+        "type": "mqtt out",
+        "z": "san_tab",
+        "name": "publie signal_bpm",
+        "topic": "gaelle-capteurs/signal_bpm",
+        "qos": "0",
+        "retain": "false",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "san_broker",
+        "x": 420,
+        "y": 1380,
+        "wires": []
+    },
+    {
+        "id": "san_t_dino",
+        "type": "inject",
+        "z": "san_tab",
+        "name": "Score dino 42",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 1,
+        "topic": "",
+        "payload": "42",
+        "payloadType": "num",
+        "x": 150,
+        "y": 1450,
+        "wires": [
+            [
+                "san_o_dino"
+            ]
+        ]
+    },
+    {
+        "id": "san_o_dino",
+        "type": "mqtt out",
+        "z": "san_tab",
+        "name": "publie dino_score",
+        "topic": "gaelle-capteurs/dino_score",
+        "qos": "0",
+        "retain": "false",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "san_broker",
+        "x": 410,
+        "y": 1450,
+        "wires": []
+    },
+    {
+        "id": "san_broker",
+        "type": "mqtt-broker",
+        "name": "Broker public EMQX",
+        "broker": "broker.emqx.io",
+        "port": 1883,
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": 4,
+        "keepalive": 60,
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
+        "id": "san_grp_etat",
+        "type": "ui-group",
+        "name": "État du système",
+        "page": "san_ui_page",
+        "width": "12",
+        "height": "1",
+        "order": 1,
+        "showTitle": true,
+        "className": "",
+        "visible": "true",
+        "disabled": "false",
+        "groupType": "default"
+    },
+    {
+        "id": "san_grp_bpm",
+        "type": "ui-group",
+        "name": "❤️ Rythme cardiaque",
+        "page": "san_ui_page",
+        "width": "6",
+        "height": "1",
+        "order": 2,
+        "showTitle": true,
+        "className": "",
+        "visible": "true",
+        "disabled": "false",
+        "groupType": "default"
+    },
+    {
+        "id": "san_grp_temp",
+        "type": "ui-group",
+        "name": "🌡️ Température",
+        "page": "san_ui_page",
+        "width": "6",
+        "height": "1",
+        "order": 3,
+        "showTitle": true,
+        "className": "",
+        "visible": "true",
+        "disabled": "false",
+        "groupType": "default"
+    },
+    {
+        "id": "san_grp_dino",
+        "type": "ui-group",
+        "name": "🎮 Dino (mode OFFLINE)",
+        "page": "san_ui_page",
+        "width": "12",
+        "height": "1",
+        "order": 4,
+        "showTitle": true,
+        "className": "",
+        "visible": "true",
+        "disabled": "false",
+        "groupType": "default"
+    },
+    {
+        "id": "san_ui_page",
+        "type": "ui-page",
+        "name": "Home Trainer",
+        "ui": "san_ui_base",
+        "path": "/mesures",
+        "icon": "heart",
+        "layout": "grid",
+        "theme": "san_ui_theme",
+        "breakpoints": [
+            {
+                "name": "Default",
+                "px": "0",
+                "cols": "6"
+            },
+            {
+                "name": "Tablet",
+                "px": "576",
+                "cols": "6"
+            },
+            {
+                "name": "Small Desktop",
+                "px": "768",
+                "cols": "12"
+            },
+            {
+                "name": "Desktop",
+                "px": "1024",
+                "cols": "12"
+            }
+        ],
+        "order": 1,
+        "className": "",
+        "visible": "true",
+        "disabled": "false"
+    },
+    {
+        "id": "san_ui_base",
         "type": "ui-base",
-        "name": "My Dashboard",
-        "path": "/dashboard",
+        "name": "Home Trainer",
+        "path": "/capteurs",
         "appIcon": "",
         "includeClientData": true,
         "acceptsClientConfig": [
@@ -44,7 +1522,26 @@
         "allowInstall": false
     },
     {
-        "id": "197f118a603e628d",
+        "id": "san_ui_theme",
+        "type": "ui-theme",
+        "name": "Theme Home Trainer",
+        "colors": {
+            "surface": "#ffffff",
+            "primary": "#0094CE",
+            "bgPage": "#eeeeee",
+            "groupBg": "#ffffff",
+            "groupOutline": "#cccccc"
+        },
+        "sizes": {
+            "density": "default",
+            "pagePadding": "12px",
+            "groupGap": "12px",
+            "groupBorderRadius": "4px",
+            "widgetGap": "12px"
+        }
+    },
+    {
+        "id": "aea98b1f59e7d06e",
         "type": "global-config",
         "env": [],
         "modules": {
